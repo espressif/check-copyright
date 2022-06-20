@@ -27,8 +27,6 @@ from comment_parser import comment_parser
 from comment_parser.parsers.common import Comment
 from thefuzz import fuzz
 
-IGNORE_LIST_FN = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'check_copyright_ignore')
-
 CHECK_FAIL_MESSAGE = textwrap.dedent(
     '''\
     To make a file, not on the ignore list to pass the test it needs to contain both:
@@ -380,7 +378,7 @@ def check_copyrights(args: argparse.Namespace) -> Tuple[List, List, List]:
     modified_files = []
     must_be_updated = []
 
-    with open(IGNORE_LIST_FN, 'r') as f:
+    with open(args.ignore, 'r') as f:
         ignore_list = [item.strip() for item in f.readlines()]
         updated_ignore_list = ignore_list.copy()
 
@@ -418,10 +416,10 @@ def check_copyrights(args: argparse.Namespace) -> Tuple[List, List, List]:
                 must_be_updated.append(file_name)
 
     if updated_ignore_list != ignore_list:
-        with open(IGNORE_LIST_FN, 'w') as f:
+        with open(args.ignore, 'w') as f:
             for item in updated_ignore_list:
                 f.write(f'{item}\n')
-        modified_files.append(CustomFile(IGNORE_LIST_FN, False))
+        modified_files.append(CustomFile(args.ignore, False))
         print(f'\n{TERMINAL_GREEN}Files removed from ignore list:{TERMINAL_RESET}')
         for file in ignore_list:
             if file not in updated_ignore_list:
@@ -445,12 +443,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('-d', '--debug', action='store_true', help='print debug info')
     parser.add_argument('-du', '--dont-update-ignore-list', action='store_true')
     parser.add_argument('-c', '--check-only', action='store_true', help='check without adding new headers')
+    parser.add_argument('-i', '--ignore', default='check_copyright_ignore', help='set path to the ignore list')
     parser.add_argument('filenames', nargs='+', help='file(s) to check', metavar='file')
     return parser
 
 
 def main() -> None:
-
     args = build_parser().parse_args()
     files = set()
     all_paths = args.filenames
@@ -464,7 +462,7 @@ def main() -> None:
 
     if args.debug:
         print(f'{TERMINAL_GRAY}Running with args: {args}')
-        print(f'Ignore list: {IGNORE_LIST_FN}{TERMINAL_RESET}')
+        print(f'Ignore list: {args.ignore}{TERMINAL_RESET}')
 
     wrong_header_files, modified_files, must_be_updated = check_copyrights(args)
     if modified_files:
