@@ -16,6 +16,8 @@ Check files for copyright headers:
 """
 import argparse
 import ast
+import glob
+
 import configparser
 import datetime
 import os
@@ -30,10 +32,6 @@ import yaml
 from comment_parser.parsers import c_parser, python_parser
 from comment_parser.parsers.common import Comment
 from thefuzz import fuzz
-
-IDF_PATH = os.getenv('IDF_PATH', os.getcwd())
-IGNORE_LIST_FN = os.path.join(IDF_PATH, 'tools/ci/check_copyright_ignore.txt')
-CONFIG_FN = os.path.join(IDF_PATH, 'tools', 'ci', 'check_copyright_config.yaml')
 
 CHECK_FAIL_MESSAGE = textwrap.dedent('''\
     To make a file pass the test, it needs to contain both:
@@ -120,6 +118,22 @@ class UnsupportedFileType(Exception):
         message -- explanation of the error
     """
     def __init__(self, file_name: str, message: str = 'this file type is not supported') -> None:
+        self.fine_name = file_name
+        self.message = message
+        super().__init__(self.message)
+
+    def __str__(self) -> str:
+        return f'{self.fine_name}: {self.message}'
+
+
+class NeedsToBeUpdated(Exception):
+    """Exception raised for licenses that needs to be updated in a check mode.
+
+    Attributes:
+        file_name -- input file which caused the error
+        message -- explanation of the error
+    """
+    def __init__(self, file_name: str, message: str = 'this file needs to be updated') -> None:
         self.fine_name = file_name
         self.message = message
         super().__init__(self.message)
@@ -240,7 +254,10 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, config_se
             if args.debug:
                 print(f'{TERMINAL_GRAY}{e} in {file_name}{TERMINAL_RESET}')
         else:
-            code_lines = replace_copyright(code_lines, year, line, mime, file_name)
+            if not args.check_only:
+                code_lines = replace_copyright(code_lines, year, line, mime, file_name)
+            else:
+                raise NeedsToBeUpdated(file_name)
             valid = True
 
     for comment in comments:
@@ -296,8 +313,11 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, config_se
             detected_licenses.append((matches.group(1), comment.line_number()))
 
     if not is_on_ignore and not contains_any_copyright(comments, args):
-        code_lines = insert_copyright(code_lines, file_name, mime, config_section)
-        print(f'"{file_name}": inserted copyright notice - please check the content and run commit again!')
+        if not args.check_only:
+            code_lines = insert_copyright(code_lines, file_name, mime, config_section)
+            print(f'"{file_name}": inserted copyright notice - please check the content and run commit again!')
+        else:
+            raise NeedsToBeUpdated(file_name)
         valid = True
     new_code = '\n'.join(code_lines) + '\n'
 
@@ -427,7 +447,7 @@ def format_years(past: int, file_name: str, today: Optional[int]=None) -> str:
     return '{past}-{today}'.format(past=past, today=_today)
 
 
-def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser) -> Tuple[List, List]:
+def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser) -> Tuple[List, List, List]:
     """
     Main logic and for loop
     returns:
@@ -436,11 +456,15 @@ def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser
     """
     wrong_header_files = []
     modified_files = []
+    must_be_updated = []
     pathspecs = {}
+    ignore_list = []
+    updated_ignore_list = []
 
-    with open(IGNORE_LIST_FN, 'r') as f:
-        ignore_list = [item.strip() for item in f.readlines()]
-        updated_ignore_list = ignore_list.copy()
+    if args.ignore:
+        with open(args.ignore, 'r') as f:
+            ignore_list = [item.strip() for item in f.readlines()]
+            updated_ignore_list = ignore_list.copy()
 
     # compile the file patterns
     for section in config.sections():
@@ -486,22 +510,25 @@ def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser
             else:
                 wrong_header_files.append(CustomFile(file_name, True))
         else:
-            valid, modified = has_valid_copyright(file_name, mime, False, config[matched_section], args)
-            if modified:
-                modified_files.append(CustomFile(file_name, False))
-            if not valid:
-                wrong_header_files.append(CustomFile(file_name, False))
+            try:
+                valid, modified = has_valid_copyright(file_name, mime, False, config[matched_section], args)
+                if modified:
+                    modified_files.append(CustomFile(file_name, False))
+                if not valid:
+                    wrong_header_files.append(CustomFile(file_name, False))
+            except NeedsToBeUpdated:
+                must_be_updated.append(file_name)
 
     if updated_ignore_list != ignore_list:
-        with open(IGNORE_LIST_FN, 'w') as f:
+        with open(args.ignore, 'w') as f:
             for item in updated_ignore_list:
                 f.write(f'{item}\n')
-        modified_files.append(CustomFile(IGNORE_LIST_FN, False))
+        modified_files.append(CustomFile(args.ignore, False))
         print(f'\n{TERMINAL_GREEN}Files removed from ignore list:{TERMINAL_RESET}')
         for file in ignore_list:
             if file not in updated_ignore_list:
                 print(f'    {file}')
-    return wrong_header_files, modified_files
+    return wrong_header_files, modified_files, must_be_updated
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -518,14 +545,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('-d', '--debug', action='store_true',
                         help='print debug info')
     parser.add_argument('-du', '--dont-update-ignore-list', action='store_true')
+    parser.add_argument('-dr', '--dry-run', action='store_true', help='check without adding new headers')
+    parser.add_argument('-i', '--ignore', default='check_copyright_ignore', help='set path to the ignore list')
+    parser.add_argument('-c', '--config', default='check_copyright_config.yaml',
+                        help='set path to the config yaml file')
     parser.add_argument('filenames', nargs='+', help='file(s) to check', metavar='file')
     return parser
 
 
 def debug_output(args: argparse.Namespace, config: configparser.ConfigParser) -> None:
     print(f'{TERMINAL_GRAY}Running with args: {args}')
-    print(f'Config file: {CONFIG_FN}')
-    print(f'Ignore list: {IGNORE_LIST_FN}{TERMINAL_RESET}')
+    print(f'Config file: {args.config}')
+    print(f'Ignore list: {args.ignore}{TERMINAL_RESET}')
     print(f'Sections: {config.sections()}')
     for section in config:
         print(f'section: "{section}"')
@@ -571,15 +602,26 @@ def verify_config(config: configparser.ConfigParser) -> None:
 def main() -> None:
 
     args = build_parser().parse_args()
+
+    files = set()
+    all_paths = args.filenames
+    for path in all_paths:
+        if os.path.isfile(path):
+            files.add(path)
+        else:
+            all_paths += glob.glob(path + '/*')
+
+    args.filenames = list(files)
+
     config = configparser.ConfigParser()
-    with open(CONFIG_FN, 'r') as f:
+    with open(args.config, 'r') as f:
         yaml_dict = yaml.safe_load(f)
         config.read_dict(yaml_dict)
 
     if args.debug:
         debug_output(args, config)
     verify_config(config)
-    wrong_header_files, modified_files = check_copyrights(args, config)
+    wrong_header_files, modified_files, must_be_updated = check_copyrights(args, config)
     abort_commit = bool(modified_files)
     num_files_wrong = 0
     if wrong_header_files:
@@ -591,6 +633,13 @@ def main() -> None:
                 abort_commit = True
                 num_files_wrong += 1
                 print(wrong_file)
+
+    if must_be_updated:
+        print(f'{TERMINAL_RED}Some files are without a copyright note and a license header needs to be added:{TERMINAL_RESET}')
+        for file in must_be_updated:
+            print(file)
+        abort_commit = True
+
     if modified_files:
         print(f'\n{TERMINAL_YELLOW}Modified files:{TERMINAL_RESET}')
         for file in modified_files:
