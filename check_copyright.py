@@ -254,7 +254,7 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, config_se
             if args.debug:
                 print(f'{TERMINAL_GRAY}{e} in {file_name}{TERMINAL_RESET}')
         else:
-            if not args.check_only:
+            if not args.dry_run:
                 code_lines = replace_copyright(code_lines, year, line, mime, file_name)
             else:
                 raise NeedsToBeUpdated(file_name)
@@ -313,7 +313,7 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, config_se
             detected_licenses.append((matches.group(1), comment.line_number()))
 
     if not is_on_ignore and not contains_any_copyright(comments, args):
-        if not args.check_only:
+        if not args.dry_run:
             code_lines = insert_copyright(code_lines, file_name, mime, config_section)
             print(f'"{file_name}": inserted copyright notice - please check the content and run commit again!')
         else:
