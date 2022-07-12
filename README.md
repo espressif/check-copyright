@@ -38,7 +38,7 @@ Example of the .pre-commit-config.yaml file
   rev: v1.0.0
   hooks:
     - id: check-copyright
-      args: ['--config', 'ci/check_copyright_config.yaml', '--ignore', 'ci/ignore_list_copyright', '--replace', '--verbose']
+      args: ['--config', 'ci/check_copyright_config.yaml', '--ignore', 'ci/ignore_list_copyright']
 ```
 
 ## As CI
