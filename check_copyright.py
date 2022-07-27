@@ -461,7 +461,7 @@ def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser
     ignore_list = []
     updated_ignore_list = []
 
-    if args.ignore:
+    if os.path.isfile(args.ignore):
         with open(args.ignore, 'r') as f:
             ignore_list = [item.strip() for item in f.readlines()]
             updated_ignore_list = ignore_list.copy()
