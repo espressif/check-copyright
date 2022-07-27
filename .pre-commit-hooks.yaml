@@ -1,6 +1,6 @@
 - id: check-copyright
   name: Check copyright notices
-  entry: check_copyright.py --verbose --replace
+  entry: check-copyright --verbose --replace
   language: python
   files: \.(py|c|h|cpp|hpp|ld|s|S)$
   require_serial: true
