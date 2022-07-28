@@ -33,5 +33,6 @@ setuptools.setup(
     url=URL,
     install_requires=REQUIRES,
     py_modules=['check_copyright'],
-    scripts=['check_copyright.py']
+    scripts=['check_copyright.py'],
+    entry_points={'console_scripts': ['check-copyright=check_copyright:main']},
 )
