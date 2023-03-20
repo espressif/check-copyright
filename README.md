@@ -14,6 +14,7 @@ Espressif repository for the script to check SPDX License Header in the files.
 | -du                  | --dont-update-ignore-list | false                       | Don't update ignore list                                                                       |
 | -dr                  | --dry-run                 | false                       | Just check license headers without replace                                                     |
 | -i                   | --ignore                  | check_copyright_ignore      | Path to the file with list of ignoring files                                                   |
+| -l                   | --lines-changed           | 5                           | Minimum number of changed lines that will enforce copyright date update                        |
 | -c                   | --config                  | check_copyright_config.yaml | Path to the config file                                                                        |
 |                      | filenames                 | Require parameter           | Path to the folder or file to check. If it is a folder, all files will be analyzed recursively |
 
