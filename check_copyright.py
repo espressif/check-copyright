@@ -22,9 +22,10 @@ import configparser
 import datetime
 import os
 import re
+import subprocess
 import sys
 import textwrap
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 
 import pathspec
 import yaml
@@ -241,6 +242,7 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, config_se
         code = f.read()
     comments = get_comments(code, mime)
     code_lines = code.splitlines()
+    lines_changed = sum(args.numstat[file_name]) if file_name in args.numstat else 0
 
     if not code_lines:  # file is empty
         print(f'{TERMINAL_YELLOW}"{file_name}" is empty!{TERMINAL_RESET}')
@@ -281,9 +283,11 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, config_se
                 if mime == MIME['python']:
                     template = '# SPDX-FileCopyrightText: ' + config_section['espressif_copyright']
                 candidate_line = template.format(years=format_years(years[0], file_name))
-                no_time_update = template.format(years=format_years(years[0], file_name, years[1]))
-                if code_lines[comment.line_number() - 1] != no_time_update:
-                    # update the line only in cases when not only the dates are changing
+                no_time_update = template.format(years=format_years(years[0], file_name, years[1] or years[0]))
+                if code_lines[comment.line_number() - 1] != no_time_update or lines_changed >= args.lines_changed:
+                    # update the line only in cases when not only the dates are changing or
+                    # if number of changed lines is greater or equal to limit specified by
+                    # args.lines_changed
                     code_lines[comment.line_number() - 1] = candidate_line
 
         matches = re.search(r'SPDX-FileContributor: ?(.*)', comment.text(), re.IGNORECASE)
@@ -303,9 +307,11 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, config_se
                 if mime == MIME['python']:
                     template = '# SPDX-FileContributor: ' + config_section['espressif_copyright']
                 candidate_line = template.format(years=format_years(years[0], file_name))
-                no_time_update = template.format(years=format_years(years[0], file_name, years[1]))
-                if code_lines[comment.line_number() - 1] != no_time_update:
-                    # update the line only in cases when not only the dates are changing
+                no_time_update = template.format(years=format_years(years[0], file_name, years[1] or years[0]))
+                if code_lines[comment.line_number() - 1] != no_time_update or lines_changed >= args.lines_changed:
+                    # update the line only in cases when not only the dates are changing or
+                    # if number of changed lines is greater or equal to limit specified by
+                    # args.lines_changed
                     code_lines[comment.line_number() - 1] = candidate_line
 
         matches = re.search(r'SPDX-License-Identifier: ?(.*)', comment.text(), re.IGNORECASE)
@@ -547,6 +553,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('-du', '--dont-update-ignore-list', action='store_true')
     parser.add_argument('-dr', '--dry-run', action='store_true', help='check without adding new headers')
     parser.add_argument('-i', '--ignore', default='check_copyright_ignore', help='set path to the ignore list')
+    parser.add_argument('-l', '--lines-changed', type=int, default=5,
+                        help='minimum number of changed lines that will enforce copyright date update (default 5)')
     parser.add_argument('-c', '--config', default='check_copyright_config.yaml',
                         help='set path to the config yaml file')
     parser.add_argument('filenames', nargs='+', help='file(s) to check', metavar='file')
@@ -599,9 +607,36 @@ def verify_config(config: configparser.ConfigParser) -> None:
         sys.exit(1)
 
 
+def git_diff_numstat() -> Dict[str, Tuple[int, int]]:
+    def call_git(args: List, die: bool = True) -> subprocess.CompletedProcess:
+        p = subprocess.run(['git'] + args, stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT, check=die, text=True)
+        return p
+
+    numstat = {}
+
+    try:
+        call_git(['rev-parse', '--git-dir'])
+
+        p = call_git(['rev-parse', '--verify', 'HEAD'], die=False)
+        if not p.returncode:
+            against = 'HEAD'
+        else:
+            p = call_git(['hash-object', '-t', 'tree', os.devnull])
+            against = p.stdout.strip()
+
+        p = call_git(['diff', '--cached', '--numstat', against])
+        numstat = {file: (int(added), int(deleted)) for added, deleted, file in [l.split() for l in p.stdout.splitlines()]}
+    except Exception as e:
+        pass
+
+    return numstat
+
+
 def main() -> None:
 
     args = build_parser().parse_args()
+    args.numstat = git_diff_numstat()
 
     files = set()
     all_paths = args.filenames
