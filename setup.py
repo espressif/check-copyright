@@ -16,7 +16,7 @@ REQUIRES = [
     'thefuzz == 0.19.0',
     'thefuzz[speedup] == 0.19.0; sys_platform != "win32"',
     # don't depend on python-Levenshtein on Windows, as it requires Microsoft C++ Build Tools to install
-    'pyyaml == 5.4.1',
+    'pyyaml == 6.0.1',
     'pathspec == 0.9.0'
 ]
 
@@ -26,7 +26,7 @@ setuptools.setup(
     description=SHORT_DESCRIPTION,
     long_description_content_type='text/markdown',
     license=LICENSE,
-    version='1.0.2',
+    version='1.0.3',
     author=AUTHOR,
     maintainer=MAINTAINER,
     author_email=EMAIL,
