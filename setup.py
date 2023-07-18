@@ -26,7 +26,7 @@ setuptools.setup(
     description=SHORT_DESCRIPTION,
     long_description_content_type='text/markdown',
     license=LICENSE,
-    version='1.0.2',
+    version='1.0.3',
     author=AUTHOR,
     maintainer=MAINTAINER,
     author_email=EMAIL,
