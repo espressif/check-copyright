@@ -226,7 +226,7 @@ def get_comments(code: str, mime: str) -> list:
     return new_comments
 
 
-def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, config_section: configparser.SectionProxy,
+def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, is_new_file: bool, config_section: configparser.SectionProxy,
                         args: argparse.Namespace) -> Tuple[bool, bool]:
     """
     Detects if a file has a valid SPDX copyright notice.
@@ -270,7 +270,10 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, config_se
         if matches:
             detected_notices.append((matches.group(1), comment.line_number()))
             try:
-                years = extract_years_from_espressif_notice(matches.group(1))
+                if is_new_file:
+                    years = (0, None)
+                else:
+                    years = extract_years_from_espressif_notice(matches.group(1))
             except NotFound as e:
                 if args.verbose:
                     print(f'{TERMINAL_GRAY}Not an {e.thing} {file_name}:{comment.line_number()}{TERMINAL_RESET}')
@@ -294,7 +297,10 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, config_se
         if matches:
             detected_contributors.append((matches.group(1), comment.line_number()))
             try:
-                years = extract_years_from_espressif_notice(matches.group(1))
+                if is_new_file:
+                    years = (0, None)
+                else:
+                    years = extract_years_from_espressif_notice(matches.group(1))
             except NotFound as e:
                 if args.debug:
                     print(f'{TERMINAL_GRAY}Not an {e.thing} {file_name}:{comment.line_number()}{TERMINAL_RESET}')
@@ -501,10 +507,13 @@ def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser
             print(f'{TERMINAL_GRAY}"{file_name}" is using config section "{matched_section}" which does not perform the check! Skipping.{TERMINAL_RESET}')
             continue
 
+        # Is this file a new file
+        is_new_file = args.is_new_file[file_name]
+
         if file_name in ignore_list:
             if args.verbose:
                 print(f'{TERMINAL_GRAY}"{file_name}" is on the ignore list.{TERMINAL_RESET}')
-            valid, modified = has_valid_copyright(file_name, mime, True, config[matched_section], args)
+            valid, modified = has_valid_copyright(file_name, mime, True, is_new_file, config[matched_section], args)
             if modified:
                 modified_files.append(CustomFile(file_name, True))
             if valid:
@@ -517,7 +526,7 @@ def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser
                 wrong_header_files.append(CustomFile(file_name, True))
         else:
             try:
-                valid, modified = has_valid_copyright(file_name, mime, False, config[matched_section], args)
+                valid, modified = has_valid_copyright(file_name, mime, False, is_new_file, config[matched_section], args)
                 if modified:
                     modified_files.append(CustomFile(file_name, False))
                 if not valid:
@@ -633,10 +642,26 @@ def git_diff_numstat() -> Dict[str, Tuple[int, int]]:
     return numstat
 
 
+def git_status_is_new_file() -> Dict[str, Tuple[bool]]:
+
+    file_status = {}
+
+    try:
+        p = subprocess.run(['git', 'status', '--short', '--renames'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        status_lines = p.stdout.splitlines()
+
+        # If the file status shows that it was newly added, i.e, 'A', then store True in the tuple, else False
+        file_status = {file: bool(status == 'A') for status, file in [l.split() for l in p.stdout.splitlines()]}
+    except Exception as e:
+        pass
+
+    return file_status
+
 def main() -> None:
 
     args = build_parser().parse_args()
     args.numstat = git_diff_numstat()
+    args.is_new_file = git_status_is_new_file()
 
     files = set()
     all_paths = args.filenames
