@@ -508,7 +508,7 @@ def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser
             continue
 
         # Is this file a new file
-        is_new_file = args.is_new_file[file_name]
+        is_new_file = args.is_new_file.get(file_name)
 
         if file_name in ignore_list:
             if args.verbose:
