@@ -254,7 +254,7 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, is_new_fi
 
     if args.replace:
         try:
-            year, line = detect_old_header_style(file_name, comments, args)
+            year, line = detect_old_header_style(file_name, comments, args, config_section)
         except NotFound as e:
             if args.debug:
                 print(f'{TERMINAL_GRAY}{e} in {file_name}{TERMINAL_RESET}')
@@ -281,13 +281,13 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, is_new_fi
                 if args.verbose:
                     print(f'{TERMINAL_GRAY}Not an {e.thing} {file_name}:{comment.line_number()}{TERMINAL_RESET}')
             else:
-                template = '// SPDX-FileCopyrightText: ' + config_section['espressif_copyright']
+                template = '// SPDX-FileCopyrightText: ' + config_section['header_copyright']
                 if comment.is_multiline():
-                    template = ' * SPDX-FileCopyrightText: ' + config_section['espressif_copyright']
+                    template = ' * SPDX-FileCopyrightText: ' + config_section['header_copyright']
                 if comment.is_first_in_multiline():
-                    template = '/* SPDX-FileCopyrightText: ' + config_section['espressif_copyright']
+                    template = '/* SPDX-FileCopyrightText: ' + config_section['header_copyright']
                 if mime == MIME['python']:
-                    template = '# SPDX-FileCopyrightText: ' + config_section['espressif_copyright']
+                    template = '# SPDX-FileCopyrightText: ' + config_section['header_copyright']
                 candidate_line = template.format(years=format_years(years[0], file_name))
                 no_time_update = template.format(years=format_years(years[0], file_name, years[1] or years[0]))
                 if code_lines[comment.line_number() - 1] != no_time_update or lines_changed >= args.lines_changed:
@@ -308,13 +308,13 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, is_new_fi
                 if args.debug:
                     print(f'{TERMINAL_GRAY}Not an {e.thing} {file_name}:{comment.line_number()}{TERMINAL_RESET}')
             else:
-                template = '// SPDX-FileContributor: ' + config_section['espressif_copyright']
+                template = '// SPDX-FileContributor: ' + config_section['header_copyright']
                 if comment.is_multiline():
-                    template = ' * SPDX-FileContributor: ' + config_section['espressif_copyright']
+                    template = ' * SPDX-FileContributor: ' + config_section['header_copyright']
                 if comment.is_first_in_multiline():
-                    template = '/* SPDX-FileContributor: ' + config_section['espressif_copyright']
+                    template = '/* SPDX-FileContributor: ' + config_section['header_copyright']
                 if mime == MIME['python']:
-                    template = '# SPDX-FileContributor: ' + config_section['espressif_copyright']
+                    template = '# SPDX-FileContributor: ' + config_section['header_copyright']
                 candidate_line = template.format(years=format_years(years[0], file_name))
                 no_time_update = template.format(years=format_years(years[0], file_name, years[1] or years[0]))
                 if code_lines[comment.line_number() - 1] != no_time_update or lines_changed >= args.lines_changed:
@@ -403,7 +403,8 @@ def replace_copyright(code_lines: list, year: int, line: int, mime: str, file_na
     """
     # replace from line number (line) to line number (line + number of lines in the OLD HEADER)
     # with new header depending on file type
-    end = line + OLD_APACHE_HEADER.count('\n')
+    #end = line + OLD_APACHE_HEADER.count('\n')
+    end = line + config_section['old_header'].count('\n')
     del code_lines[line - 1:end - 1]
 
     template = NEW_APACHE_HEADER
@@ -416,7 +417,7 @@ def replace_copyright(code_lines: list, year: int, line: int, mime: str, file_na
     return code_lines
 
 
-def detect_old_header_style(file_name: str, comments: list, args: argparse.Namespace) -> Tuple[int, int]:
+def detect_old_header_style(file_name: str, comments: list, args: argparse.Namespace, config_section: configparser.SectionProxy) -> Tuple[int, int]:
     """
     Detects old header style (Apache-2.0) and extracts the year and line number.
     returns: Tuple[year, comment line number]
@@ -426,7 +427,8 @@ def detect_old_header_style(file_name: str, comments: list, args: argparse.Names
         if comment.line_number() > args.max_lines:
             break
         comments_text = f'{comments_text}\n{comment.text().strip()}'
-    ratio = fuzz.partial_ratio(comments_text, OLD_APACHE_HEADER)
+    #ratio = fuzz.partial_ratio(comments_text, OLD_APACHE_HEADER)
+    ratio = fuzz.partial_ratio(comments_text, config_section['old_header'])
     if args.debug:
         print(f'{TERMINAL_GRAY}ratio for {file_name}: {ratio}{TERMINAL_RESET}')
     if ratio > args.fuzzy_ratio:

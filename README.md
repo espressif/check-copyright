@@ -82,19 +82,22 @@ DEFAULT:
     - Apache-2.0
   license_for_new_files: Apache-2.0  # license to be used when inserting a new copyright notice
   new_notice_c: |  # notice for new C, CPP, H, HPP and LD files
-    //
-    // Copyright (c) {years} Vaillant Group International GmbH. All rights reserved.
-    //
+    /*
+     * SPDX-FileCopyrightText: {years} Vaillant Group International GmbH. All rights reserved.
+     * SPDX-License-Identifier: {license}
+     */
   new_notice_python: |  # notice for new python files
     # SPDX-FileCopyrightText: {years} Espressif Systems (Shanghai) CO LTD
     # SPDX-License-Identifier: {license}
 
-  # comment lines matching:
-  # SPDX-FileCopyrightText: year[-year] Espressif Systems
-  # or
-  # SPDX-FileContributor: year[-year] Espressif Systems
+  # comment lines matching <old_header> section
   # are replaced with this template prefixed with the correct comment notation (# or // or *) and SPDX- notation
-  espressif_copyright: '{years} Espressif Systems (Shanghai) CO LTD'
+  header_copyright: '{years} Vaillant Group International GmbH. All rights reserved.'
+
+  old_header: |  # old copyright header
+    //
+    // Copyright (c) {years} Vaillant Group International GmbH. All rights reserved.
+    //
 
 # You can create your own rules for files or group of files
 examples_and_unit_tests:
@@ -124,7 +127,3 @@ ignore:  # You can also select ignoring files here
     - '!components/bt/host/bluedroid/btc/'
     - examples/zigbee/
 ```
-
-
-
-
