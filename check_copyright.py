@@ -30,7 +30,7 @@ from typing import List, Optional, Tuple, Dict
 import pathspec
 import yaml
 # importing the whole comment_parser causes a crash when running inside of gitbash environment on Windows.
-from comment_parser.parsers import c_parser, python_parser
+from comment_parser.parsers import c_parser, python_parser, js_parser
 from comment_parser.parsers.common import Comment
 from thefuzz import fuzz
 
@@ -84,7 +84,6 @@ NEW_APACHE_HEADER_PYTHON = textwrap.dedent('''\
 NEW_APACHE_HEADER = textwrap.dedent('''\
     /*
      * SPDX-FileCopyrightText: {years} Espressif Systems (Shanghai) CO LTD
-     *
      * SPDX-License-Identifier: Apache-2.0
      */
     ''')
@@ -92,7 +91,8 @@ NEW_APACHE_HEADER = textwrap.dedent('''\
 MIME = {
     'python': 'text/x-python',
     'c': 'text/x-c',
-    'cpp': 'text/x-c++'
+    'cpp': 'text/x-c++',
+    'js': 'text/javascript'
 }
 
 # mime -> parser
@@ -100,6 +100,7 @@ MIME_PARSER = {
     'text/x-c': c_parser,
     'text/x-c++': c_parser,
     'text/x-python': python_parser,
+    'text/javascript': js_parser,
 }
 
 # terminal color output
@@ -205,6 +206,8 @@ def get_file_mime(fn: str) -> str:
         return MIME['cpp']
     if fn.endswith(('.c', '.h', '.ld', '.s', '.S')):
         return MIME['c']
+    if fn.endswith(('.qml', '.js')):
+        return MIME['js']
     raise UnsupportedFileType(fn)
 
 
@@ -544,7 +547,6 @@ def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser
             if file not in updated_ignore_list:
                 print(f'    {file}')
     return wrong_header_files, modified_files, must_be_updated
-
 
 def build_parser() -> argparse.ArgumentParser:
 
