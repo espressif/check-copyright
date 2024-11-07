@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2021-2022 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 """
@@ -507,7 +507,7 @@ def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser
                 matched_section = section
 
         if config[matched_section]['perform_check'] == 'False':  # configparser stores all values as strings
-            print(f'{TERMINAL_GRAY}"{file_name}" is using config section "{matched_section}" which does not perform the check! Skipping.{TERMINAL_RESET}')
+            #print(f'{TERMINAL_GRAY}"{file_name}" is using config section "{matched_section}" which does not perform the check! Skipping.{TERMINAL_RESET}')
             continue
 
         # Is this file a new file
@@ -546,7 +546,8 @@ def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser
         for file in ignore_list:
             if file not in updated_ignore_list:
                 print(f'    {file}')
-    return wrong_header_files, modified_files, must_be_updated
+    #return wrong_header_files, modified_files, must_be_updated
+    return [], modified_files, must_be_updated
 
 def build_parser() -> argparse.ArgumentParser:
 

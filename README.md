@@ -82,11 +82,9 @@ DEFAULT:
     - Apache-2.0
   license_for_new_files: Apache-2.0  # license to be used when inserting a new copyright notice
   new_notice_c: |  # notice for new C, CPP, H, HPP and LD files
-    /*
-     * SPDX-FileCopyrightText: {years} Espressif Systems (Shanghai) CO LTD
-     *
-     * SPDX-License-Identifier: {license}
-     */
+    //
+    // Copyright (c) {years} Vaillant Group International GmbH. All rights reserved.
+    //
   new_notice_python: |  # notice for new python files
     # SPDX-FileCopyrightText: {years} Espressif Systems (Shanghai) CO LTD
     # SPDX-License-Identifier: {license}
