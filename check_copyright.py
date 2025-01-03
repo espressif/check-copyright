@@ -201,7 +201,7 @@ def get_file_mime(fn: str) -> str:
     """
     if fn.endswith('.py'):
         return MIME['python']
-    if fn.endswith(('.cpp', '.hpp')):
+    if fn.endswith(('.cpp', '.hpp', '.cc', '.hh')):
         return MIME['cpp']
     if fn.endswith(('.c', '.h', '.ld', '.s', '.S')):
         return MIME['c']
