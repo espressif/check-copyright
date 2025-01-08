@@ -92,7 +92,8 @@ NEW_APACHE_HEADER = textwrap.dedent('''\
 MIME = {
     'python': 'text/x-python',
     'c': 'text/x-c',
-    'cpp': 'text/x-c++'
+    'cpp': 'text/x-c++',
+    'bsasm': 'text/x-bsasm',
 }
 
 # mime -> parser
@@ -100,6 +101,7 @@ MIME_PARSER = {
     'text/x-c': c_parser,
     'text/x-c++': c_parser,
     'text/x-python': python_parser,
+    'text/x-bsasm': python_parser,
 }
 
 # terminal color output
@@ -205,6 +207,8 @@ def get_file_mime(fn: str) -> str:
         return MIME['cpp']
     if fn.endswith(('.c', '.h', '.ld', '.s', '.S')):
         return MIME['c']
+    if fn.endswith('.bsasm'):
+        return MIME['bsasm']
     raise UnsupportedFileType(fn)
 
 
@@ -283,7 +287,7 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, is_new_fi
                     template = ' * SPDX-FileCopyrightText: ' + config_section['espressif_copyright']
                 if comment.is_first_in_multiline():
                     template = '/* SPDX-FileCopyrightText: ' + config_section['espressif_copyright']
-                if mime == MIME['python']:
+                if mime in (MIME['python'], MIME['bsasm']):
                     template = '# SPDX-FileCopyrightText: ' + config_section['espressif_copyright']
                 candidate_line = template.format(years=format_years(years[0], file_name))
                 no_time_update = template.format(years=format_years(years[0], file_name, years[1] or years[0]))
@@ -310,7 +314,7 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, is_new_fi
                     template = ' * SPDX-FileContributor: ' + config_section['espressif_copyright']
                 if comment.is_first_in_multiline():
                     template = '/* SPDX-FileContributor: ' + config_section['espressif_copyright']
-                if mime == MIME['python']:
+                if mime in (MIME['python'], MIME['bsasm']):
                     template = '# SPDX-FileContributor: ' + config_section['espressif_copyright']
                 candidate_line = template.format(years=format_years(years[0], file_name))
                 no_time_update = template.format(years=format_years(years[0], file_name, years[1] or years[0]))
@@ -377,6 +381,8 @@ def insert_copyright(code_lines: list, file_name: str, mime: str, config_section
     template = config_section['new_notice_c']
     if mime == MIME['python']:
         template = config_section['new_notice_python']
+    if mime == MIME['bsasm']:
+        template = config_section['new_notice_bsasm']
     new_code_lines.extend(template.format(license=config_section['license_for_new_files'], years=format_years(0, file_name)).splitlines())
     new_code_lines.extend(code_lines)
     return new_code_lines
@@ -404,7 +410,7 @@ def replace_copyright(code_lines: list, year: int, line: int, mime: str, file_na
     del code_lines[line - 1:end - 1]
 
     template = NEW_APACHE_HEADER
-    if mime == MIME['python']:
+    if mime in (MIME['python'], MIME['bsasm']):
         template = NEW_APACHE_HEADER_PYTHON
     code_lines[line - 1:line - 1] = template.format(years=format_years(year, file_name)).splitlines()
 

@@ -2,5 +2,5 @@
   name: Check copyright notices
   entry: check-copyright --verbose --replace
   language: python
-  files: \.(py|c|h|cpp|hpp|ld|s|S)$
+  files: \.(py|c|h|cpp|hpp|ld|s|S|bsasm)$
   require_serial: true
