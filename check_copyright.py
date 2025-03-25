@@ -274,10 +274,11 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, is_new_fi
         if matches:
             detected_notices.append((matches.group(1), comment.line_number()))
             try:
+                years = extract_years_from_espressif_notice(matches.group(1))
+                # The previous call not just detects the year but also indentifies right line with Espressif license
+                # and distiguishes between updating FileContributor and FileCopyright.
                 if is_new_file:
                     years = (0, None)
-                else:
-                    years = extract_years_from_espressif_notice(matches.group(1))
             except NotFound as e:
                 if args.verbose:
                     print(f'{TERMINAL_GRAY}Not an {e.thing} {file_name}:{comment.line_number()}{TERMINAL_RESET}')
@@ -301,10 +302,11 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, is_new_fi
         if matches:
             detected_contributors.append((matches.group(1), comment.line_number()))
             try:
+                years = extract_years_from_espressif_notice(matches.group(1))
+                # The previous call not just detects the year but also indentifies right line with Espressif license
+                # and distiguishes between updating FileContributor and FileCopyright.
                 if is_new_file:
                     years = (0, None)
-                else:
-                    years = extract_years_from_espressif_notice(matches.group(1))
             except NotFound as e:
                 if args.debug:
                     print(f'{TERMINAL_GRAY}Not an {e.thing} {file_name}:{comment.line_number()}{TERMINAL_RESET}')
