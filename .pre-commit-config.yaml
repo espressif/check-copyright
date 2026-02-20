@@ -10,6 +10,14 @@ ci:
   autoupdate_schedule: quarterly
 
 repos:
+  - repo: https://github.com/espressif/conventional-precommit-linter
+    rev: v1.11.0
+    hooks:
+      - id: conventional-precommit-linter
+        stages: [commit-msg]
+        args:
+          - --allow-breaking
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.2
     hooks:

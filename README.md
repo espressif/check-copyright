@@ -55,6 +55,24 @@ check_copyright:
     - python -m check_copyright --verbose --dry-run --ignore ci/ignore_list_copyright --config ci/check_copyright_config.yaml .
 ```
 
+# How to release
+
+Releases use [Commitizen](https://commitizen-tools.github.io/commitizen/) with the **czespressif** convention. Commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/) (enforced by the `conventional-precommit-linter` hook).
+
+1. **Install dev dependencies** (includes `czespressif` and Commitizen):
+   ```bash
+   pip install -e ".[dev]"
+   ```
+
+2. **Bump version and create release**:
+   ```bash
+   cz bump
+   ```
+
+3. **Push the branch and the new tag**:
+   ```bash
+   git push && git push --tags
+   ```
 
 # Configure ignore list
 
