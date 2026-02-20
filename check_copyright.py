@@ -380,11 +380,12 @@ def insert_copyright(code_lines: list, file_name: str, mime: str, config_section
     if code_lines[0].startswith('#!'):
         new_code_lines.append(code_lines[0])
         del code_lines[0]
-    template = config_section['new_notice_c']
     if mime == MIME['python']:
         template = config_section['new_notice_python']
-    if mime == MIME['bsasm']:
+    elif mime == MIME['bsasm']:
         template = config_section['new_notice_bsasm']
+    else:
+        template = config_section['new_notice_c']
     new_code_lines.extend(template.format(license=config_section['license_for_new_files'], years=format_years(0, file_name)).splitlines())
     new_code_lines.extend(code_lines)
     return new_code_lines
