@@ -512,7 +512,7 @@ def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser
                     print(f'{TERMINAL_GRAY}{file_name} matched {section}{TERMINAL_RESET}')
                 matched_section = section
 
-        if config[matched_section]['perform_check'] == 'False':  # configparser stores all values as strings
+        if config[matched_section]['perform_check'].lower() in ('no', 'false'):
             print(f'{TERMINAL_GRAY}"{file_name}" is using config section "{matched_section}" which does not perform the check! Skipping.{TERMINAL_RESET}')
             continue
 
@@ -609,15 +609,19 @@ def allowed_license_combination(license_to_match: str, all_licenses: List[str]) 
 def verify_config(config: configparser.ConfigParser) -> None:
     fail = False
     for section in config:
+        # configparser stores all values as strings
+        if config[section].get('perform_check', 'no').lower() not in ('yes', 'true'):
+            continue
         license_for_new_files = config[section]['license_for_new_files']
 
-        # configparser stores all values as strings
         allowed_licenses = ast.literal_eval(config[section]['allowed_licenses'])
         if not allowed_license_combination(license_for_new_files, allowed_licenses):
             print(f'Invalid config, section "{section}":\nDefault license for new files '
                   f'({license_for_new_files}) is not on the allowed licenses list {allowed_licenses}.')
             fail = True
     for section in config.sections():
+        if config[section].get('perform_check', 'no').lower() not in ('yes', 'true'):
+            continue
         if 'include' not in config[section]:
             print(f'Invalid config, section "{section}":\nSection does not have the "include" option set.')
             fail = True
