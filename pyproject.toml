@@ -11,7 +11,7 @@ description = "Copyright header checker"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.7"
-version = "1.1.1"
+version = "1.1.2"
 authors = [
     { name = "Espressif Systems"}
 ]
@@ -39,6 +39,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "build",
+    "czespressif",
     "ruff",
 ]
 
@@ -51,6 +52,21 @@ check-copyright = "check_copyright:main"
 
 [tool.setuptools]
 py-modules = ["check_copyright"]
+
+# -----------------------------------------------------------------------------
+# Commitizen
+# -----------------------------------------------------------------------------
+[tool.commitizen]
+name                       = "czespressif"
+bump_message               = 'change(bump): Update version to $new_version'
+annotated_tag              = true
+changelog_merge_prerelease = true
+tag_format                 = "v$version"
+update_changelog_on_bump   = true
+version                    = "1.1.2"
+version_provider           = "pep621"
+version_files              = ["pyproject.toml:^version"]
+changelog_start_rev        = "v1.1.2"
 
 # -----------------------------------------------------------------------------
 # Ruff (linting, formatting, isort replacement)
