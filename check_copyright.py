@@ -14,27 +14,32 @@ Check files for copyright headers:
     - SPDX with invalid year or company format -> replace with valid SPDX and remove from ignore list
     else -> keep on ignore list
 """
+
 import argparse
 import ast
-import glob
-
 import configparser
 import datetime
+import glob
 import os
 import re
 import subprocess
 import sys
 import textwrap
-from typing import List, Optional, Tuple, Dict
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
 
 import pathspec
 import yaml
+
 # importing the whole comment_parser causes a crash when running inside of gitbash environment on Windows.
-from comment_parser.parsers import c_parser, python_parser
+from comment_parser.parsers import c_parser
+from comment_parser.parsers import python_parser
 from comment_parser.parsers.common import Comment
 from thefuzz import fuzz
 
-CHECK_FAIL_MESSAGE = textwrap.dedent('''\
+CHECK_FAIL_MESSAGE = textwrap.dedent("""\
     To make a file pass the test, it needs to contain both:
     an SPDX-FileCopyrightText and an SPDX-License-Identifier with an allowed license for the section.
     More information about SPDX license identifiers can be found here:
@@ -42,23 +47,23 @@ CHECK_FAIL_MESSAGE = textwrap.dedent('''\
     To have this hook automatically insert the standard Espressif copyright notice,
     ensure the word "copyright" is not in any comment up to line 30 and the file is not on the ignore list.
     Below is a list of files, which failed the copyright check.
-    ''')
+    """)
 
-CHECK_MODIFY_MESSAGE = textwrap.dedent('''\
+CHECK_MODIFY_MESSAGE = textwrap.dedent("""\
     Above is a list of files, which were modified. Please check their contents, stage them and run the commit again!
     Files prefixed with "(ignore)" were on the ignore list at the time of invoking this script.
     They may have been removed if noted above.
-    ''')
+    """)
 
-CHECK_FOOTER_MESSAGE = textwrap.dedent('''\
+CHECK_FOOTER_MESSAGE = textwrap.dedent("""\
 
     Additional information about this hook and copyright headers may be found here:
     https://docs.espressif.com/projects/esp-idf/en/latest/esp32/contribute/copyright-guide.html
-    ''')
+    """)
 
 # This is an old header style, which this script
 # attempts to detect and replace with a new SPDX license identifier
-OLD_APACHE_HEADER = textwrap.dedent('''\
+OLD_APACHE_HEADER = textwrap.dedent("""\
     Copyright 2015-2019 Espressif Systems (Shanghai) PTE LTD
 
     Licensed under the Apache License, Version 2.0 (the "License");
@@ -72,22 +77,22 @@ OLD_APACHE_HEADER = textwrap.dedent('''\
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-    ''')
+    """)
 
 
 # New headers to be used
-NEW_APACHE_HEADER_PYTHON = textwrap.dedent('''\
+NEW_APACHE_HEADER_PYTHON = textwrap.dedent("""\
     # SPDX-FileCopyrightText: {years} Espressif Systems (Shanghai) CO LTD
     # SPDX-License-Identifier: Apache-2.0
-    ''')
+    """)
 
-NEW_APACHE_HEADER = textwrap.dedent('''\
+NEW_APACHE_HEADER = textwrap.dedent("""\
     /*
      * SPDX-FileCopyrightText: {years} Espressif Systems (Shanghai) CO LTD
      *
      * SPDX-License-Identifier: Apache-2.0
      */
-    ''')
+    """)
 # filetype -> mime
 MIME = {
     'python': 'text/x-python',
@@ -120,13 +125,14 @@ class UnsupportedFileType(Exception):
         file_name -- input file which caused the error
         message -- explanation of the error
     """
+
     def __init__(self, file_name: str, message: str = 'this file type is not supported') -> None:
-        self.fine_name = file_name
+        self.file_name = file_name
         self.message = message
         super().__init__(self.message)
 
     def __str__(self) -> str:
-        return f'{self.fine_name}: {self.message}'
+        return f'{self.file_name}: {self.message}'
 
 
 class NeedsToBeUpdated(Exception):
@@ -136,13 +142,14 @@ class NeedsToBeUpdated(Exception):
         file_name -- input file which caused the error
         message -- explanation of the error
     """
+
     def __init__(self, file_name: str, message: str = 'this file needs to be updated') -> None:
-        self.fine_name = file_name
+        self.file_name = file_name
         self.message = message
         super().__init__(self.message)
 
     def __str__(self) -> str:
-        return f'{self.fine_name}: {self.message}'
+        return f'{self.file_name}: {self.message}'
 
 
 class NotFound(Exception):
@@ -151,6 +158,7 @@ class NotFound(Exception):
     Attributes:
         thing -- what was not found
     """
+
     def __init__(self, thing: str = 'something') -> None:
         self.thing = thing
         super().__init__(self.thing)
@@ -164,6 +172,7 @@ class CustomFile:
     Custom data object to hold file name and if it's on the ignore list
     and to make it easier to print
     """
+
     def __init__(self, file_name: str, is_on_ignore_list: bool) -> None:
         self.file_name = file_name
         self.is_on_ignore_list = is_on_ignore_list
@@ -179,6 +188,7 @@ class CommentHolder(Comment):
     Hold the comment, its line number and when it is multiline,
     also store if it's the first in a comment block
     """
+
     def __init__(self, text: str, line_number: int, multiline: bool = False, first_in_multiline: bool = False):
         """
         Args:
@@ -223,15 +233,21 @@ def get_comments(code: str, mime: str) -> list:
         if comment.is_multiline():
             comment_lines = comment.text().splitlines()
             for line_number, line in enumerate(comment_lines, start=comment.line_number()):
-                # the third argument of Comment is a bool multiline. Store the relative line number inside the multiline comment
+                # Comment third arg is multiline; store relative line number in multiline comment
                 new_comments.append(CommentHolder(line, line_number, True, line_number == comment.line_number()))
         else:
             new_comments.append(CommentHolder(comment.text(), comment.line_number()))
     return new_comments
 
 
-def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, is_new_file: bool, config_section: configparser.SectionProxy,
-                        args: argparse.Namespace) -> Tuple[bool, bool]:
+def has_valid_copyright(
+    file_name: str,
+    mime: str,
+    is_on_ignore: bool,
+    is_new_file: bool,
+    config_section: configparser.SectionProxy,
+    args: argparse.Namespace,
+) -> Tuple[bool, bool]:
     """
     Detects if a file has a valid SPDX copyright notice.
     returns: Tuple[valid, modified]
@@ -242,7 +258,7 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, is_new_fi
 
     valid, modified = False, False
 
-    with open(file_name, 'r') as f:
+    with open(file_name) as f:
         code = f.read()
     comments = get_comments(code, mime)
     code_lines = code.splitlines()
@@ -355,7 +371,10 @@ def has_valid_copyright(file_name: str, mime: str, is_on_ignore: bool, is_new_fi
             allowed_licenses = ast.literal_eval(config_section['allowed_licenses'])
             if not allowed_license_combination(detected_license, allowed_licenses):
                 valid = False
-                print(f'{TERMINAL_RED}{file_name}:{line_number} License "{detected_license}" is not allowed! Allowed licenses: {allowed_licenses}.')
+                print(
+                    f'{TERMINAL_RED}{file_name}:{line_number} License "{detected_license}" is not allowed! '
+                    f'Allowed licenses: {allowed_licenses}.{TERMINAL_RESET}'
+                )
 
     return valid, modified
 
@@ -365,8 +384,7 @@ def contains_any_copyright(comments: list, args: argparse.Namespace) -> bool:
     Return True if any comment contain the word "copyright"
     """
     return any(
-        comment.line_number() <= args.max_lines
-        and re.search(r'copyright', comment.text(), re.IGNORECASE)
+        comment.line_number() <= args.max_lines and re.search(r'copyright', comment.text(), re.IGNORECASE)
         for comment in comments
     )
 
@@ -386,7 +404,12 @@ def insert_copyright(code_lines: list, file_name: str, mime: str, config_section
         template = config_section['new_notice_bsasm']
     else:
         template = config_section['new_notice_c']
-    new_code_lines.extend(template.format(license=config_section['license_for_new_files'], years=format_years(0, file_name)).splitlines())
+    new_code_lines.extend(
+        template.format(
+            license=config_section['license_for_new_files'],
+            years=format_years(0, file_name),
+        ).splitlines()
+    )
     new_code_lines.extend(code_lines)
     return new_code_lines
 
@@ -410,14 +433,17 @@ def replace_copyright(code_lines: list, year: int, line: int, mime: str, file_na
     # replace from line number (line) to line number (line + number of lines in the OLD HEADER)
     # with new header depending on file type
     end = line + OLD_APACHE_HEADER.count('\n')
-    del code_lines[line - 1:end - 1]
+    del code_lines[line - 1 : end - 1]
 
     template = NEW_APACHE_HEADER
     if mime in (MIME['python'], MIME['bsasm']):
         template = NEW_APACHE_HEADER_PYTHON
-    code_lines[line - 1:line - 1] = template.format(years=format_years(year, file_name)).splitlines()
+    code_lines[line - 1 : line - 1] = template.format(years=format_years(year, file_name)).splitlines()
 
-    print(f'{TERMINAL_BOLD}"{file_name}": replacing old Apache-2.0 header (lines: {line}-{end}) with the new SPDX header.{TERMINAL_RESET}')
+    print(
+        f'{TERMINAL_BOLD}"{file_name}": replacing old Apache-2.0 header '
+        f'(lines: {line}-{end}) with the new SPDX header.{TERMINAL_RESET}'
+    )
 
     return code_lines
 
@@ -427,7 +453,7 @@ def detect_old_header_style(file_name: str, comments: list, args: argparse.Names
     Detects old header style (Apache-2.0) and extracts the year and line number.
     returns: Tuple[year, comment line number]
     """
-    comments_text = str()
+    comments_text = ''
     for comment in comments:
         if comment.line_number() > args.max_lines:
             break
@@ -449,7 +475,7 @@ def detect_old_header_style(file_name: str, comments: list, args: argparse.Names
     raise NotFound('Old Espressif header')
 
 
-def format_years(past: int, file_name: str, today: Optional[int]=None) -> str:
+def format_years(past: int, file_name: str, today: Optional[int] = None) -> str:
     """
     Function to format a year:
      - just current year -> output: [year]
@@ -462,10 +488,12 @@ def format_years(past: int, file_name: str, today: Optional[int]=None) -> str:
     if past == _today:
         return str(past)
     if past > _today or past < 1972:
-        error_msg = f'{file_name}: invalid year in the copyright header detected. ' \
+        error_msg = (
+            f'{file_name}: invalid year in the copyright header detected. '
             + 'Check your system clock and the copyright header.'
+        )
         raise ValueError(error_msg)
-    return '{past}-{today}'.format(past=past, today=_today)
+    return f'{past}-{_today}'
 
 
 def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser) -> Tuple[List, List, List]:
@@ -483,19 +511,21 @@ def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser
     updated_ignore_list = []
 
     if os.path.isfile(args.ignore):
-        with open(args.ignore, 'r') as f:
+        with open(args.ignore) as f:
             ignore_list = [item.strip() for item in f.readlines()]
             updated_ignore_list = ignore_list.copy()
 
     # compile the file patterns
     for section in config.sections():
-
         # configparser stores all values as strings
         patterns = ast.literal_eval(config[section]['include'])
         try:
             pathspecs[section] = pathspec.PathSpec.from_lines('gitwildmatch', patterns)
         except TypeError:
-            print(f'Error while compiling file patterns. Section {section} has invalid include option. Must be a list of file patterns.')
+            print(
+                f'Error while compiling file patterns. Section {section} has invalid include option. '
+                f'Must be a list of file patterns.'
+            )
             sys.exit(1)
 
     for file_name in args.filenames:
@@ -513,7 +543,10 @@ def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser
                 matched_section = section
 
         if config[matched_section]['perform_check'].lower() in ('no', 'false'):
-            print(f'{TERMINAL_GRAY}"{file_name}" is using config section "{matched_section}" which does not perform the check! Skipping.{TERMINAL_RESET}')
+            print(
+                f'{TERMINAL_GRAY}"{file_name}" is using config section "{matched_section}" '
+                f'which does not perform the check! Skipping.{TERMINAL_RESET}'
+            )
             continue
 
         # Is this file a new file
@@ -527,15 +560,20 @@ def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser
                 modified_files.append(CustomFile(file_name, True))
             if valid:
                 if args.dont_update_ignore_list:
-                    print(f'{TERMINAL_YELLOW}"{file_name}" now has a correct copyright header - remove it from the ignore list '
-                          f'or run this script without the --dont-update-ignore-list option to do this automatically!{TERMINAL_RESET}')
+                    print(
+                        f'{TERMINAL_YELLOW}"{file_name}" now has a correct copyright header - remove it from the '
+                        f'ignore list or run this script without the --dont-update-ignore-list option to do this '
+                        f'automatically!{TERMINAL_RESET}'
+                    )
                 else:
                     updated_ignore_list.remove(file_name)
             else:
                 wrong_header_files.append(CustomFile(file_name, True))
         else:
             try:
-                valid, modified = has_valid_copyright(file_name, mime, False, is_new_file, config[matched_section], args)
+                valid, modified = has_valid_copyright(
+                    file_name, mime, False, is_new_file, config[matched_section], args
+                )
                 if modified:
                     modified_files.append(CustomFile(file_name, False))
                 if not valid:
@@ -556,25 +594,33 @@ def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser
 
 
 def build_parser() -> argparse.ArgumentParser:
-
     parser = argparse.ArgumentParser(description='Check copyright headers')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='print more information (useful for debugging)')
-    parser.add_argument('-r', '--replace', action='store_true',
-                        help='tries to update copyright notices')
-    parser.add_argument('-m', '--max-lines', type=int, default=30,
-                        help='how far to check for copyright notice in a file (default 30)')
-    parser.add_argument('-f', '--fuzzy-ratio', type=int, default=95,
-                        help='minimum %% ratio to be considered as equal to the old header style (default 95)')
-    parser.add_argument('-d', '--debug', action='store_true',
-                        help='print debug info')
+    parser.add_argument('-v', '--verbose', action='store_true', help='print more information (useful for debugging)')
+    parser.add_argument('-r', '--replace', action='store_true', help='tries to update copyright notices')
+    parser.add_argument(
+        '-m', '--max-lines', type=int, default=30, help='how far to check for copyright notice in a file (default 30)'
+    )
+    parser.add_argument(
+        '-f',
+        '--fuzzy-ratio',
+        type=int,
+        default=95,
+        help='minimum %% ratio to be considered as equal to the old header style (default 95)',
+    )
+    parser.add_argument('-d', '--debug', action='store_true', help='print debug info')
     parser.add_argument('-du', '--dont-update-ignore-list', action='store_true')
     parser.add_argument('-dr', '--dry-run', action='store_true', help='check without adding new headers')
     parser.add_argument('-i', '--ignore', default='check_copyright_ignore', help='set path to the ignore list')
-    parser.add_argument('-l', '--lines-changed', type=int, default=5,
-                        help='minimum number of changed lines that will enforce copyright date update (default 5)')
-    parser.add_argument('-c', '--config', default='check_copyright_config.yaml',
-                        help='set path to the config yaml file')
+    parser.add_argument(
+        '-l',
+        '--lines-changed',
+        type=int,
+        default=5,
+        help='minimum number of changed lines that will enforce copyright date update (default 5)',
+    )
+    parser.add_argument(
+        '-c', '--config', default='check_copyright_config.yaml', help='set path to the config yaml file'
+    )
     parser.add_argument('filenames', nargs='+', help='file(s) to check', metavar='file')
     return parser
 
@@ -616,8 +662,10 @@ def verify_config(config: configparser.ConfigParser) -> None:
 
         allowed_licenses = ast.literal_eval(config[section]['allowed_licenses'])
         if not allowed_license_combination(license_for_new_files, allowed_licenses):
-            print(f'Invalid config, section "{section}":\nDefault license for new files '
-                  f'({license_for_new_files}) is not on the allowed licenses list {allowed_licenses}.')
+            print(
+                f'Invalid config, section "{section}":\nDefault license for new files '
+                f'({license_for_new_files}) is not on the allowed licenses list {allowed_licenses}.'
+            )
             fail = True
     for section in config.sections():
         if config[section].get('perform_check', 'no').lower() not in ('yes', 'true'):
@@ -631,8 +679,7 @@ def verify_config(config: configparser.ConfigParser) -> None:
 
 def git_diff_numstat() -> Dict[str, Tuple[int, int]]:
     def call_git(args: List, die: bool = True) -> subprocess.CompletedProcess:
-        p = subprocess.run(['git'] + args, stdout=subprocess.PIPE,
-                           stderr=subprocess.STDOUT, check=die, text=True)
+        p = subprocess.run(['git'] + args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=die, text=True)
         return p
 
     numstat = {}
@@ -648,30 +695,34 @@ def git_diff_numstat() -> Dict[str, Tuple[int, int]]:
             against = p.stdout.strip()
 
         p = call_git(['diff', '--cached', '--numstat', against])
-        numstat = {file: (int(added), int(deleted)) for added, deleted, file in [l.split() for l in p.stdout.splitlines()]}
-    except Exception as e:
+        lines = p.stdout.splitlines()
+        numstat = {f: (int(added), int(deleted)) for added, deleted, f in [line.split() for line in lines]}
+    except Exception:
         pass
 
     return numstat
 
 
 def git_status_is_new_file() -> Dict[str, Tuple[bool]]:
-
     file_status = {}
 
     try:
-        p = subprocess.run(['git', 'status', '--short', '--renames'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        p = subprocess.run(
+            ['git', 'status', '--short', '--renames'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
         status_lines = p.stdout.splitlines()
-
         # If the file status shows that it was newly added, i.e, 'A', then store True in the tuple, else False
-        file_status = {file: bool(status == 'A') for status, file in [l.split() for l in p.stdout.splitlines()]}
-    except Exception as e:
+        file_status = {f: bool(status == 'A') for status, f in [line.split() for line in status_lines]}
+    except Exception:
         pass
 
     return file_status
 
-def main() -> None:
 
+def main() -> None:
     args = build_parser().parse_args()
     args.numstat = git_diff_numstat()
     args.is_new_file = git_status_is_new_file()
@@ -687,7 +738,7 @@ def main() -> None:
     args.filenames = list(files)
 
     config = configparser.ConfigParser()
-    with open(args.config, 'r') as f:
+    with open(args.config) as f:
         yaml_dict = yaml.safe_load(f)
         config.read_dict(yaml_dict)
 
@@ -708,7 +759,10 @@ def main() -> None:
                 print(wrong_file)
 
     if must_be_updated:
-        print(f'{TERMINAL_RED}Some files are without a copyright note and a license header needs to be added:{TERMINAL_RESET}')
+        print(
+            f'{TERMINAL_RED}Some files are without a copyright note and a license header '
+            f'needs to be added:{TERMINAL_RESET}'
+        )
         for file in must_be_updated:
             print(file)
         abort_commit = True
@@ -724,11 +778,16 @@ def main() -> None:
     if abort_commit:
         num_files_modified = len(modified_files)
 
-        print(f'{TERMINAL_RED}Processed {num_files_processed} source file{"s"[:num_files_processed^1]},', end=' ')
-        print(f'{num_files_modified} were modified and {num_files_wrong} have an invalid copyright (excluding ones on the ignore list).{TERMINAL_RESET}')
+        source_plural = 's' if num_files_processed != 1 else ''
+        print(f'{TERMINAL_RED}Processed {num_files_processed} source file{source_plural},', end=' ')
+        print(
+            f'{num_files_modified} were modified and {num_files_wrong} have an invalid copyright '
+            f'(excluding ones on the ignore list).{TERMINAL_RESET}'
+        )
         sys.exit(1)  # sys.exit(1) to abort the commit
     # pre-commit also automatically aborts a commit if files are modified on disk
-    print(f'{TERMINAL_GREEN}Successfully processed {num_files_processed} file{"s"[:num_files_processed^1]}.{TERMINAL_RESET}')
+    plural = 's' if num_files_processed != 1 else ''
+    print(f'{TERMINAL_GREEN}Successfully processed {num_files_processed} file{plural}.{TERMINAL_RESET}')
 
 
 if __name__ == '__main__':

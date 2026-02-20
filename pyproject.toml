@@ -1,0 +1,75 @@
+# SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+# SPDX-License-Identifier: Apache-2.0
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "check-copyright"
+description = "Copyright header checker"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.7"
+version = "1.1.1"
+authors = [
+    { name = "Espressif Systems"}
+]
+keywords = ["copyright", "spdx", "license", "espressif"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "comment_parser",
+    "thefuzz",
+    'thefuzz[speedup]; sys_platform != "win32"',
+    "pyyaml",
+    "pathspec",
+]
+
+[project.optional-dependencies]
+dev = [
+    "build",
+    "ruff",
+]
+
+[project.urls]
+Homepage = "https://github.com/espressif/check-copyright"
+Repository = "https://github.com/espressif/check-copyright"
+
+[project.scripts]
+check-copyright = "check_copyright:main"
+
+[tool.setuptools]
+py-modules = ["check_copyright"]
+
+# -----------------------------------------------------------------------------
+# Ruff (linting, formatting, isort replacement)
+# -----------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py37"
+line-length = 120
+src = ["."]
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "I", "UP"]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["check_copyright"]
+force-single-line = true
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+docstring-code-format = true
