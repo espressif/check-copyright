@@ -39,6 +39,13 @@ from comment_parser.parsers import python_parser
 from comment_parser.parsers.common import Comment
 from thefuzz import fuzz
 
+try:
+    # pathspec >= 1.0 deprecates 'gitwildmatch' in favour of 'gitignore'
+    from pathspec.patterns.gitignore.basic import GitIgnoreBasicPattern as PathSpecPattern
+except ImportError:
+    # pathspec < 1.0 treats 'gitignore' as a deprecated alias of 'gitwildmatch'
+    from pathspec.patterns.gitwildmatch import GitWildMatchPattern as PathSpecPattern
+
 CHECK_FAIL_MESSAGE = textwrap.dedent("""\
     To make a file pass the test, it needs to contain both:
     an SPDX-FileCopyrightText and an SPDX-License-Identifier with an allowed license for the section.
@@ -520,7 +527,7 @@ def check_copyrights(args: argparse.Namespace, config: configparser.ConfigParser
         # configparser stores all values as strings
         patterns = ast.literal_eval(config[section]['include'])
         try:
-            pathspecs[section] = pathspec.PathSpec.from_lines('gitwildmatch', patterns)
+            pathspecs[section] = pathspec.PathSpec.from_lines(PathSpecPattern, patterns)
         except TypeError:
             print(
                 f'Error while compiling file patterns. Section {section} has invalid include option. '
